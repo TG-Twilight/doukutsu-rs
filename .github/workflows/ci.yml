@@ -51,6 +51,9 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt install -y --fix-missing libasound2-dev libudev-dev libgl1-mesa-dev libxext-dev
+          if [ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]; then
+            sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          fi
 
       - name: Restore cache
         uses: actions/cache/restore@v4
@@ -68,6 +71,14 @@ jobs:
           
           rustc -vV
           cargo -vV
+
+      - name: Set up cross-compilation environment for ARM64
+        if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' }}
+        run: |
+          export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+          export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
+          export AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
+          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
 
       - name: Build
         run: |
@@ -101,42 +112,3 @@ jobs:
             ~/.rustup
             target
           key: ${{ matrix.target_name }}-cargo
-
-  update_metadata:
-    name: Update metadata
-    runs-on: ubuntu-latest
-    if: ${{ github.ref_type != 'tag' && always() }}
-    needs: [build]
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: doukutsu-rs/metadata
-          token: ${{ secrets.METADATA_USER_TOKEN }}
-
-      - name: Update metadata
-        id: metadata
-        run: |
-          export FILE="./metadata/nightly.json"
-          if [ "${{ github.ref_name }}" == "master" ]; then
-            export VERSION="${{ env.VERSION }}-$((${{ github.run_number }} + 654))"
-          else
-            export VERSION="${{ env.VERSION }}-${GITHUB_SHA:0:7}"
-          fi
-
-          if [ "${{ needs.build.result }}" == "success" ]; then
-            node ./metadata.js --os linux --arch x86_64 --version $VERSION --commit $GITHUB_SHA --link https://nightly.link/doukutsu-rs/doukutsu-rs/actions/runs/${{ github.run_id }}/doukutsu-rs_linux-x64.zip $FILE
-            node ./metadata.js --os linux --arch aarch64 --version $VERSION --commit $GITHUB_SHA --link https://nightly.link/doukutsu-rs/doukutsu-rs/actions/runs/${{ github.run_id }}/doukutsu-rs_linux-arm64.zip $FILE
-          fi
-
-          echo "file=$FILE" >> "$GITHUB_OUTPUT"
-
-      - name: Upload metadata
-        run: |
-          git config user.name ${{ vars.METADATA_USER_NAME }}
-          git config user.email ${{ vars.METADATA_USER_EMAIL }}
-
-          git add ${{ steps.metadata.outputs.file }}
-          git commit -m "Update nightly builds metadata(CI)"
-          git push
