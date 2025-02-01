@@ -57,6 +57,12 @@ jobs:
             channel: stable
             target: aarch64-apple-darwin
             target_name: mac-arm64
+          - name: Linux aarch64
+            os: ubuntu-latest
+            channel: stable
+            target: aarch64-unknown-linux-gnu
+            target_name: linux-aarch64
+            arch_name: aarch64
 
     steps:
       - uses: actions/checkout@v4
