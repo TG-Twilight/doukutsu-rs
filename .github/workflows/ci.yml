@@ -1,97 +1,82 @@
-name: CI
+name: Release Build
 
 on:
   push:
-    branches-ignore:
-      - cpp-rewrite
-      - horizon-os
-    paths-ignore:
-      - '.gitignore'
-      - '.github/*'
-      - '**.md'
-      - 'LICENSE'
-      - 'drshorizon/**'
-      - 'res/**'
-  workflow_dispatch:
-
-defaults:
-  run:
-    shell: bash
-
-env:
-  VERSION: "0.101.0"
+    tags:
+      - 'v1.0.0'
 
 jobs:
-  build:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - name: Linux x86_64
-            os: ubuntu-latest
-            channel: stable
-            target: x86_64-unknown-linux-gnu
-            target_name: linux-x64
-            arch_name: x86_64
-          - name: Linux ARM64
-            os: ubuntu-latest
-            channel: stable
-            target: aarch64-unknown-linux-gnu
-            target_name: linux-arm64
-            arch_name: aarch64
-
+  build-linux-arm64:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install dependencies
-        run: sudo apt install libasound2-dev libudev-dev libgl1-mesa-dev libxext-dev
 
-      - name: Restore cache
-        uses: actions/cache/restore@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
         with:
-          path: |
-            ~/.cargo
-            ~/.rustup
-            target
-          key: ${{ matrix.target_name }}-cargo
+          toolchain: stable
+          override: true
+          targets: aarch64-unknown-linux-gnu
 
-      - name: Setup rust toolchain
-        run: |
-          rustup default ${{ matrix.channel }}
-          rustup target add ${{ matrix.target }}
-          rustc -vV
-          cargo -vV
 
-      - name: Build
+      - name: Install dependencies
         run: |
-          if [ "${{ github.ref_type }}" == "tag" ]; then
-            export DRS_BUILD_VERSION_OVERRIDE="${{ github.ref_name }}"
-          elif [ "${{ github.ref_name }}" == "master" ]; then
-            export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-$((${{ github.run_number }} + 654))"
-          else
-            export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-${GITHUB_SHA:0:7}"
-          fi
-          
-          mkdir release
-          cp LICENSE release
-          
-          RUSTFLAGS="-C link-args=-s" CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs --target ${{ matrix.target }}
-          cp -a ./target/${{ matrix.target }}/release/doukutsu-rs release/doukutsu-rs.${{ matrix.arch_name }}.elf
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+
+      - name: Build for Linux arm64
+        run: |
+          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+          cargo build --release --target aarch64-unknown-linux-gnu
+
+
+      - name: Package the binary
+        run: |
+          mkdir -p release
+          cp target/aarch64-unknown-linux-gnu/release/doukutsu-rs release/doukutsu-rs-linux-arm64
+
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
-          name: doukutsu-rs_${{ matrix.target_name }}
-          path: ./release/*
-          if-no-files-found: error
+          name: doukutsu-rs-linux-arm64
+          path: release/doukutsu-rs-linux-arm64
 
-      - name: Save cache
-        if: ${{ github.ref_name == 'master' || github.ref_type == 'tag' }}
-        uses: actions/cache/save@v4
+
+  release:
+    needs: build-linux-arm64
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Download artifact
+        uses: actions/download-artifact@v3
         with:
-          path: |
-            ~/.cargo
-            ~/.rustup
-            target
-          key: ${{ matrix.target_name }}-cargo
+          name: doukutsu-rs-linux-arm64
+          path: release
+
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: release/doukutsu-rs-linux-arm64
+          asset_name: doukutsu-rs-linux-arm64
+          asset_content_type: application/octet-stream
