@@ -1,40 +1,97 @@
-name: Build for Linux ARM64
+name: CI
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+    branches-ignore:
+      - cpp-rewrite
+      - horizon-os
+    paths-ignore:
+      - '.gitignore'
+      - '.github/*'
+      - '**.md'
+      - 'LICENSE'
+      - 'drshorizon/**'
+      - 'res/**'
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  VERSION: "0.101.0"
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: true
       matrix:
-        target: [aarch64-unknown-linux-gnu]
+        include:
+          - name: Linux x86_64
+            os: ubuntu-latest
+            channel: stable
+            target: x86_64-unknown-linux-gnu
+            target_name: linux-x64
+            arch_name: x86_64
+          - name: Linux ARM64
+            os: ubuntu-latest
+            channel: stable
+            target: aarch64-unknown-linux-gnu
+            target_name: linux-arm64
+            arch_name: aarch64
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          target: ${{ matrix.target }}
-
+      - uses: actions/checkout@v4
       - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y build-essential cmake pkg-config libx11-dev libasound2-dev
+        run: sudo apt install libasound2-dev libudev-dev libgl1-mesa-dev libxext-dev
 
-      - name: Build with cross (ARM64)
-        run: |
-          cargo install cross --git https://github.com/cross-rs/cross
-          cross build --release --target=${{ matrix.target }}
+      - name: Restore cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cargo
+            ~/.rustup
+            target
+          key: ${{ matrix.target_name }}-cargo
 
-      - name: Upload Artifact
+      - name: Setup rust toolchain
+        run: |
+          rustup default ${{ matrix.channel }}
+          rustup target add ${{ matrix.target }}
+          rustc -vV
+          cargo -vV
+
+      - name: Build
+        run: |
+          if [ "${{ github.ref_type }}" == "tag" ]; then
+            export DRS_BUILD_VERSION_OVERRIDE="${{ github.ref_name }}"
+          elif [ "${{ github.ref_name }}" == "master" ]; then
+            export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-$((${{ github.run_number }} + 654))"
+          else
+            export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-${GITHUB_SHA:0:7}"
+          fi
+          
+          mkdir release
+          cp LICENSE release
+          
+          RUSTFLAGS="-C link-args=-s" CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs --target ${{ matrix.target }}
+          cp -a ./target/${{ matrix.target }}/release/doukutsu-rs release/doukutsu-rs.${{ matrix.arch_name }}.elf
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: game-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/doukutsu-rs
+          name: doukutsu-rs_${{ matrix.target_name }}
+          path: ./release/*
+          if-no-files-found: error
+
+      - name: Save cache
+        if: ${{ github.ref_name == 'master' || github.ref_type == 'tag' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo
+            ~/.rustup
+            target
+          key: ${{ matrix.target_name }}-cargo
