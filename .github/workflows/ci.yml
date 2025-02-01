@@ -1,123 +1,40 @@
-name: CI
+name: Build for Linux ARM64
 
 on:
   push:
-    branches-ignore:
-      - cpp-rewrite
-      - horizon-os
-    paths-ignore:
-      - '.gitignore'
-      - '.github/*'
-      - '**.md'
-      - 'LICENSE'
-      - 'drshorizon/**'
-      - 'res/**'
-  workflow_dispatch:
-
-defaults:
-  run:
-    shell: bash
-
-env:
-  VERSION: "0.101.0"
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
-      fail-fast: true
       matrix:
-        include:
-          - name: Linux x86_64
-            os: ubuntu-latest
-            channel: stable
-            target: x86_64-unknown-linux-gnu
-            target_name: linux-x64
-            arch_name: x86_64
-          - name: Linux ARM64
-            os: ubuntu-latest
-            channel: stable
-            target: aarch64-unknown-linux-gnu
-            target_name: linux-arm64
-            arch_name: aarch64
-
+        target: [aarch64-unknown-linux-gnu]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Update apt package list
-        run: sudo apt update
-
-      - name: Enable multi-arch support
-        if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' }}
-        run: |
-          sudo dpkg --add-architecture arm64
-          sudo apt update
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.target }}
 
       - name: Install dependencies
         run: |
-          sudo apt install -y --fix-missing libasound2-dev libudev-dev libgl1-mesa-dev libxext-dev
-          if [ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]; then
-            sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libasound2-dev:arm64
-          fi
+          sudo apt update
+          sudo apt install -y build-essential cmake pkg-config libx11-dev libasound2-dev
 
-      - name: Restore cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cargo
-            ~/.rustup
-            target
-          key: ${{ matrix.target_name }}-cargo
-
-      - name: Setup rust toolchain
+      - name: Build with cross (ARM64)
         run: |
-          rustup default ${{ matrix.channel }}
-          rustup target add ${{ matrix.target }}
-          
-          rustc -vV
-          cargo -vV
+          cargo install cross --git https://github.com/cross-rs/cross
+          cross build --release --target=${{ matrix.target }}
 
-      - name: Set up cross-compilation environment for ARM64
-        if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' }}
-        run: |
-          export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
-          export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
-          export AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
-          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-          export PKG_CONFIG_ALLOW_CROSS=1
-          export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
-          export PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu
-
-      - name: Build
-        run: |
-          if [ "${{ github.ref_type }}" == "tag" ]; then
-            export DRS_BUILD_VERSION_OVERRIDE="${{ github.ref_name }}"
-          elif [ "${{ github.ref_name }}" == "master"]; then
-            export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-$((${{ github.run_number }} + 654))"
-          else
-            export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-${GITHUB_SHA:0:7}"
-          fi
-          
-          mkdir release
-          cp LICENSE release
-          
-          RUSTFLAGS="-C link-args=-s" CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs --target ${{ matrix.target }}
-          cp -a ./target/${{ matrix.target }}/release/doukutsu-rs release/doukutsu-rs.${{ matrix.arch_name }}.elf
-
-      - name: Upload artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: doukutsu-rs_${{ matrix.target_name }}
-          path: ./release/*
-          if-no-files-found: error
-
-      - name: Save cache
-        if: ${{ github.ref_name == 'master' || github.ref_type == 'tag' }}
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.cargo
-            ~/.rustup
-            target
-          key: ${{ matrix.target_name }}-cargo
+          name: game-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/doukutsu-rs
