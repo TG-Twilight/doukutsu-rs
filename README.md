@@ -3,8 +3,6 @@
 A fully playable re-implementation of the Cave Story (Doukutsu Monogatari) engine written
 in [Rust](https://www.rust-lang.org/).
 
-[Join the Discord server](https://discord.gg/fbRsNNB)
-
 [![CI](https://github.com/doukutsu-rs/doukutsu-rs/actions/workflows/ci.yml/badge.svg?branch=master)](https://nightly.link/doukutsu-rs/doukutsu-rs/workflows/ci/master?preview)
 
 - [Get nightly builds](https://nightly.link/doukutsu-rs/doukutsu-rs/workflows/ci/master?preview) (recommended for now, has latest fixes and improvements)
