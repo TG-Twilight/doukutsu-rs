@@ -35,6 +35,12 @@ jobs:
             target: x86_64-unknown-linux-gnu
             target_name: linux-x64
             arch_name: x86_64
+          - name: Linux AArch64
+            os: ubuntu-latest
+            channel: stable
+            target: aarch64-unknown-linux-gnu
+            target_name: linux-arm64
+            arch_name: aarch64
           - name: Windows x64
             os: windows-latest
             channel: stable
@@ -52,23 +58,23 @@ jobs:
             channel: stable
             target: x86_64-apple-darwin
             target_name: mac-x64
+            arch_name: x86_64
           - name: macOS ARM64 (M1 Macs)
             os: macos-latest
             channel: stable
             target: aarch64-apple-darwin
             target_name: mac-arm64
-          - name: Linux aarch64
-            os: ubuntu-latest
-            channel: stable
-            target: aarch64-unknown-linux-gnu
-            target_name: linux-aarch64
-            arch_name: aarch64
 
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
         if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: sudo apt install libasound2-dev libudev-dev libgl1-mesa-dev libxext-dev
+        run: |
+          sudo apt update
+          sudo apt install libasound2-dev libudev-dev libgl1-mesa-dev libxext-dev
+          if [ "${{ matrix.arch_name }}" == "aarch64" ]; then
+            sudo apt install gcc-aarch64-linux-gnu
+          fi
 
       - name: Restore cache
         uses: actions/cache/restore@v4
@@ -95,7 +101,7 @@ jobs:
         run: |
           if [ "${{ github.ref_type }}" == "tag" ]; then
             export DRS_BUILD_VERSION_OVERRIDE="${{ github.ref_name }}"
-          elif [ "${{ github.ref_name }}" == "master"]; then
+          elif [ "${{ github.ref_name }}" == "master" ]; then
             export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-$((${{ github.run_number }} + 654))"
           else
             export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-${GITHUB_SHA:0:7}"
@@ -112,8 +118,13 @@ jobs:
             CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs --target ${{ matrix.target }}
             cp ./target/${{ matrix.target }}/release/doukutsu-rs.exe release/doukutsu-rs.${{ matrix.arch_name }}.exe
           elif [ "${{ runner.os }}" == "Linux" ]; then
-            RUSTFLAGS="-C link-args=-s" CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs
-            cp -a ./target/release/doukutsu-rs release/doukutsu-rs.${{ matrix.arch_name }}.elf
+            if [ "${{ matrix.arch_name }}" == "aarch64" ]; then
+              RUSTFLAGS="-C link-args=-s" CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs --target aarch64-unknown-linux-gnu
+              cp -a ./target/aarch64-unknown-linux-gnu/release/doukutsu-rs release/doukutsu-rs.${{ matrix.arch_name }}.elf
+            else
+              RUSTFLAGS="-C link-args=-s" CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs
+              cp -a ./target/release/doukutsu-rs release/doukutsu-rs.${{ matrix.arch_name }}.elf
+            fi
           fi
 
       - name: Upload artifact
@@ -171,7 +182,7 @@ jobs:
         run: |
           if [ "${{ github.ref_type }}" == "tag" ]; then
             export DRS_BUILD_VERSION_OVERRIDE="${{ github.ref_name }}"
-          elif [ "${{ github.ref_name }}" == "master"]; then
+          elif [ "${{ github.ref_name }}" == "master" ]; then
             export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-$((${{ github.run_number }} + 654))"
           else
             export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-${GITHUB_SHA:0:7}"
@@ -221,49 +232,3 @@ jobs:
             app/app/build
             drsandroid/target
           key: android-cargo
-
-  update_metadata:
-    name: Update metadata
-    runs-on: ubuntu-latest
-    if: ${{ github.ref_type != 'tag' && always() }}
-    needs: [build, build_android]
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: doukutsu-rs/metadata
-          token: ${{ secrets.METADATA_USER_TOKEN }}
-
-      - name: Update metadata
-        id: metadata
-        run: |
-          export FILE="./metadata/nightly.json"
-          if [ "${{ github.ref_name }}" == "master" ]; then
-            export VERSION="${{ env.VERSION }}-$((${{ github.run_number }} + 654))"
-          else
-            export VERSION="${{ env.VERSION }}-${GITHUB_SHA:0:7}"
-          fi
-
-          if [ "${{ needs.build.result }}" == "success" ]; then
-            node ./metadata.js --os linux --arch x86_64 --version $VERSION --commit $GITHUB_SHA --link https://nightly.link/doukutsu-rs/doukutsu-rs/actions/runs/${{ github.run_id }}/doukutsu-rs_linux-x64.zip $FILE
-            node ./metadata.js --os windows --arch x86_64 --version $VERSION --commit $GITHUB_SHA --link https://nightly.link/doukutsu-rs/doukutsu-rs/actions/runs/${{ github.run_id }}/doukutsu-rs_windows-x64.zip $FILE
-            node ./metadata.js --os windows --arch i686 --version $VERSION --commit $GITHUB_SHA --link https://nightly.link/doukutsu-rs/doukutsu-rs/actions/runs/${{ github.run_id }}/doukutsu-rs_windows-x32.zip $FILE
-            node ./metadata.js --os macos --arch x64 --version $VERSION --commit $GITHUB_SHA --link https://nightly.link/doukutsu-rs/doukutsu-rs/actions/runs/${{ github.run_id }}/doukutsu-rs_mac-x64.zip $FILE
-            node ./metadata.js --os macos --arch arm64 --version $VERSION --commit $GITHUB_SHA --link https://nightly.link/doukutsu-rs/doukutsu-rs/actions/runs/${{ github.run_id }}/doukutsu-rs_mac-arm64.zip $FILE
-          fi
-
-          if [ "${{ needs.build_android.result }}" == "success" ]; then
-            node ./metadata.js --os android --version $VERSION --commit $GITHUB_SHA --link https://nightly.link/doukutsu-rs/doukutsu-rs/actions/runs/${{ github.run_id }}/doukutsu-rs_android.zip $FILE
-          fi
-
-          echo "file=$FILE" >> "$GITHUB_OUTPUT"
-
-      - name: Upload metadata
-        run: |
-          git config user.name ${{ vars.METADATA_USER_NAME }}
-          git config user.email ${{ vars.METADATA_USER_EMAIL }}
-
-          git add ${{ steps.metadata.outputs.file }}
-          git commit -m "Update nightly builds metadata(CI)"
-          git push
