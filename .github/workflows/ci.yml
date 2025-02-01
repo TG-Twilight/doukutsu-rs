@@ -24,20 +24,16 @@ env:
 jobs:
   build:
     name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: true
       matrix:
         include:
           - name: Linux x86_64
-            os: ubuntu-latest
-            channel: stable
             target: x86_64-unknown-linux-gnu
             target_name: linux-x64
             arch_name: x86_64
           - name: Linux ARM64
-            os: ubuntu-latest
-            channel: stable
             target: aarch64-unknown-linux-gnu
             target_name: linux-arm64
             arch_name: aarch64
@@ -45,80 +41,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update apt package list
-        run: sudo apt update
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-      - name: Enable multi-arch support
-        if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' }}
+      - name: Build with Docker
         run: |
-          sudo dpkg --add-architecture arm64
-          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://ports.ubuntu.com/ubuntu-ports|g' /etc/apt/sources.list
-          sudo apt update
-
-      - name: Install dependencies
-        run: |
-          sudo apt install -y --fix-missing libasound2-dev libudev-dev libgl1-mesa-dev libxext-dev
           if [ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]; then
-            sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libasound2-dev:arm64
-          fi
-
-      - name: Restore cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cargo
-            ~/.rustup
-            target
-          key: ${{ matrix.target_name }}-cargo
-
-      - name: Setup rust toolchain
-        run: |
-          rustup default ${{ matrix.channel }}
-          rustup target add ${{ matrix.target }}
-          
-          rustc -vV
-          cargo -vV
-
-      - name: Set up cross-compilation environment for ARM64
-        if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' }}
-        run: |
-          export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
-          export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
-          export AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
-          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-          export PKG_CONFIG_ALLOW_CROSS=1
-          export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
-          export PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu
-
-      - name: Build
-        run: |
-          if [ "${{ github.ref_type }}" == "tag" ]; then
-            export DRS_BUILD_VERSION_OVERRIDE="${{ github.ref_name }}"
-          elif [ "${{ github.ref_name }}" == "master"]; then
-            export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-$((${{ github.run_number }} + 654))"
+            docker run --rm -v "$(pwd)":/workspace -w /workspace rust:latest cargo build --release --target ${{ matrix.target }}
           else
-            export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-${GITHUB_SHA:0:7}"
+            cargo build --release --target ${{ matrix.target }}
           fi
-          
-          mkdir release
-          cp LICENSE release
-          
-          RUSTFLAGS="-C link-args=-s" CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs --target ${{ matrix.target }}
-          cp -a ./target/${{ matrix.target }}/release/doukutsu-rs release/doukutsu-rs.${{ matrix.arch_name }}.elf
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: doukutsu-rs_${{ matrix.target_name }}
-          path: ./release/*
+          path: ./target/${{ matrix.target }}/release/doukutsu-rs
           if-no-files-found: error
-
-      - name: Save cache
-        if: ${{ github.ref_name == 'master' || github.ref_type == 'tag' }}
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.cargo
-            ~/.rustup
-            target
-          key: ${{ matrix.target_name }}-cargo
