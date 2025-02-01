@@ -35,12 +35,6 @@ jobs:
             target: x86_64-unknown-linux-gnu
             target_name: linux-x64
             arch_name: x86_64
-          - name: Linux AArch64
-            os: ubuntu-latest
-            channel: stable
-            target: aarch64-unknown-linux-gnu
-            target_name: linux-arm64
-            arch_name: aarch64
           - name: Windows x64
             os: windows-latest
             channel: stable
@@ -58,23 +52,23 @@ jobs:
             channel: stable
             target: x86_64-apple-darwin
             target_name: mac-x64
-            arch_name: x86_64
           - name: macOS ARM64 (M1 Macs)
             os: macos-latest
             channel: stable
             target: aarch64-apple-darwin
             target_name: mac-arm64
+          - name: Linux ARM64
+            os: ubuntu-latest
+            channel: stable
+            target: aarch64-unknown-linux-gnu
+            target_name: linux-arm64
+            arch_name: aarch64
 
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
         if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: |
-          sudo apt update
-          sudo apt install libasound2-dev libudev-dev libgl1-mesa-dev libxext-dev
-          if [ "${{ matrix.arch_name }}" == "aarch64" ]; then
-            sudo apt install gcc-aarch64-linux-gnu
-          fi
+        run: sudo apt install libasound2-dev libudev-dev libgl1-mesa-dev libxext-dev
 
       - name: Restore cache
         uses: actions/cache/restore@v4
@@ -101,7 +95,7 @@ jobs:
         run: |
           if [ "${{ github.ref_type }}" == "tag" ]; then
             export DRS_BUILD_VERSION_OVERRIDE="${{ github.ref_name }}"
-          elif [ "${{ github.ref_name }}" == "master" ]; then
+          elif [ "${{ github.ref_name }}" == "master"]; then
             export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-$((${{ github.run_number }} + 654))"
           else
             export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-${GITHUB_SHA:0:7}"
@@ -118,13 +112,8 @@ jobs:
             CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs --target ${{ matrix.target }}
             cp ./target/${{ matrix.target }}/release/doukutsu-rs.exe release/doukutsu-rs.${{ matrix.arch_name }}.exe
           elif [ "${{ runner.os }}" == "Linux" ]; then
-            if [ "${{ matrix.arch_name }}" == "aarch64" ]; then
-              RUSTFLAGS="-C link-args=-s" CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs --target aarch64-unknown-linux-gnu
-              cp -a ./target/aarch64-unknown-linux-gnu/release/doukutsu-rs release/doukutsu-rs.${{ matrix.arch_name }}.elf
-            else
-              RUSTFLAGS="-C link-args=-s" CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs
-              cp -a ./target/release/doukutsu-rs release/doukutsu-rs.${{ matrix.arch_name }}.elf
-            fi
+            RUSTFLAGS="-C link-args=-s" CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs
+            cp -a ./target/release/doukutsu-rs release/doukutsu-rs.${{ matrix.arch_name }}.elf
           fi
 
       - name: Upload artifact
@@ -174,10 +163,6 @@ jobs:
           cargo -vV
           cargo install cargo-ndk
 
-      - name: Set up environment variables
-        run: |
-         echo "CXX=/usr/bin/aarch64-linux-gnu-g++" >> $GITHUB_ENV
-
       - name: Install development kits
         run: |
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install --package_file=app/app/packages.txt
@@ -186,7 +171,7 @@ jobs:
         run: |
           if [ "${{ github.ref_type }}" == "tag" ]; then
             export DRS_BUILD_VERSION_OVERRIDE="${{ github.ref_name }}"
-          elif [ "${{ github.ref_name }}" == "master" ]; then
+          elif [ "${{ github.ref_name }}" == "master"]; then
             export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-$((${{ github.run_number }} + 654))"
           else
             export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-${GITHUB_SHA:0:7}"
@@ -236,3 +221,43 @@ jobs:
             app/app/build
             drsandroid/target
           key: android-cargo
+
+  update_metadata:
+    name: Update metadata
+    runs-on: ubuntu-latest
+    if: ${{ github.ref_type != 'tag' && always() }}
+    needs: [build, build_android]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: doukutsu-rs/metadata
+          token: ${{ secrets.METADATA_USER_TOKEN }}
+
+      - name: Update metadata
+        id: metadata
+        run: |
+          export FILE="./metadata/metadata.json"
+          if [ "${{ github.ref_name }}" == "master" ]; then
+            export VERSION="${{ env.VERSION }}-$((${{ github.run_number }} + 654))"
+          else
+            export VERSION="${{ env.VERSION }}-${GITHUB_SHA:0:7}"
+          fi
+
+          if [ "${{ needs.build.result }}" == "success" ]; then
+            # Removed nightly.link related code
+            node ./metadata.js --os linux --arch x86_64 --version $VERSION --commit $GITHUB_SHA --link "" $FILE
+            node ./metadata.js --os windows --arch x86_64 --version $VERSION --commit $GITHUB_SHA --link "" $FILE
+            node ./metadata.js --os mac --arch x86_64 --version $VERSION --commit $GITHUB_SHA --link "" $FILE
+            node ./metadata.js --os linux --arch aarch64 --version $VERSION --commit $GITHUB_SHA --link "" $FILE
+            node ./metadata.js --os mac --arch aarch64 --version $VERSION --commit $GITHUB_SHA --link "" $FILE
+          fi
+
+      - name: Upload metadata
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git commit -am "Updated metadata for ${{ github.ref_name }} $VERSION"
+          git push
+
