@@ -229,48 +229,11 @@ jobs:
           repository: doukutsu-rs/metadata
           token: ${{ secrets.METADATA_USER_TOKEN }}
 
-      - update_metadata:
-  name: Update metadata
-  runs-on: ubuntu-latest
-  if: ${{ github.ref_type != 'tag' && always() }}
-  needs: [build, build_android]
-  permissions:
-    contents: write
-  steps:
-    - uses: actions/checkout@v4
-      with:
-        repository: doukutsu-rs/metadata
-        token: ${{ secrets.METADATA_USER_TOKEN }}
+      - name: Upload metadata
+        run: |
+          git config user.name ${{ vars.METADATA_USER_NAME }}
+          git config user.email ${{ vars.METADATA_USER_EMAIL }}
 
-    - name: Update metadata
-      id: metadata
-      run: |
-        export FILE="./metadata/nightly.json"
-        if [ "${{ github.ref_name }}" == "master" ]; then
-          export VERSION="${{ env.VERSION }}-$((${{ github.run_number }} + 654))"
-        else
-          export VERSION="${{ env.VERSION }}-${GITHUB_SHA:0:7}"
-        fi
-
-        if [ "${{ needs.build.result }}" == "success" ]; then
-          node ./metadata.js --os linux --arch x86_64 --version $VERSION --commit $GITHUB_SHA $FILE
-          node ./metadata.js --os windows --arch x86_64 --version $VERSION --commit $GITHUB_SHA $FILE
-          node ./metadata.js --os windows --arch i686 --version $VERSION --commit $GITHUB_SHA $FILE
-          node ./metadata.js --os macos --arch x64 --version $VERSION --commit $GITHUB_SHA $FILE
-          node ./metadata.js --os macos --arch arm64 --version $VERSION --commit $GITHUB_SHA $FILE
-        fi
-
-        if [ "${{ needs.build_android.result }}" == "success" ]; then
-          node ./metadata.js --os android --version $VERSION --commit $GITHUB_SHA $FILE
-        fi
-
-        echo "file=$FILE" >> "$GITHUB_OUTPUT"
-
-    - name: Upload metadata
-      run: |
-        git config user.name ${{ vars.METADATA_USER_NAME }}
-        git config user.email ${{ vars.METADATA_USER_EMAIL }}
-
-        git add ${{ steps.metadata.outputs.file }}
-        git commit -m "Update metadata (CI)"
-        git push
+          git add ${{ steps.metadata.outputs.file }}
+          git commit -m "Update nightly builds metadata(CI)"
+          git push
