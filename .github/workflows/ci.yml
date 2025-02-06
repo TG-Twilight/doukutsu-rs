@@ -35,6 +35,12 @@ jobs:
             target: x86_64-unknown-linux-gnu
             target_name: linux-x64
             arch_name: x86_64
+          - name: Linux ARM64
+            os: ubuntu-latest
+            channel: stable
+            target: aarch64-unknown-linux-gnu  # 添加ARM64的target
+            target_name: linux-arm64
+            arch_name: aarch64
           - name: Windows x64
             os: windows-latest
             channel: stable
@@ -106,8 +112,8 @@ jobs:
             CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs --target ${{ matrix.target }}
             cp ./target/${{ matrix.target }}/release/doukutsu-rs.exe release/doukutsu-rs.${{ matrix.arch_name }}.exe
           elif [ "${{ runner.os }}" == "Linux" ]; then
-            RUSTFLAGS="-C link-args=-s" CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs
-            cp -a ./target/release/doukutsu-rs release/doukutsu-rs.${{ matrix.arch_name }}.elf
+            RUSTFLAGS="-C link-args=-s" CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs --target ${{ matrix.target }}
+            cp -a ./target/${{ matrix.target }}/release/doukutsu-rs release/doukutsu-rs.${{ matrix.arch_name }}.elf
           fi
 
       - name: Upload artifact
@@ -244,6 +250,7 @@ jobs:
             node ./metadata.js --os windows --arch x86_64 --version $VERSION --commit $GITHUB_SHA --link https://nightly.link/doukutsu-rs/doukutsu-rs/actions/runs/${{ github.run_id }}/doukutsu-rs_windows-x64.zip $FILE
             node ./metadata.js --os windows --arch i686 --version $VERSION --commit $GITHUB_SHA --link https://nightly.link/doukutsu-rs/doukutsu-rs/actions/runs/${{ github.run_id }}/doukutsu-rs_windows-x32.zip $FILE
             node ./metadata.js --os macos --arch arm64 --version $VERSION --commit $GITHUB_SHA --link https://nightly.link/doukutsu-rs/doukutsu-rs/actions/runs/${{ github.run_id }}/doukutsu-rs_mac-arm64.zip $FILE
+            node ./metadata.js --os linux --arch arm64 --version $VERSION --commit $GITHUB_SHA --link https://nightly.link/doukutsu-rs/doukutsu-rs/actions/runs/${{ github.run_id }}/doukutsu-rs_linux-arm64.zip $FILE
           fi
 
           if [ "${{ needs.build_android.result }}" == "success" ]; then
