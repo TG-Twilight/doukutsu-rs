@@ -70,9 +70,11 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
           sudo apt update
-          sudo apt install -y libasound2-dev libudev-dev libgl1-mesa-dev libxext-dev
+          sudo apt install -y libasound2-dev libudev-dev libgl1-mesa-dev libxext-dev pkg-config
           if [ "${{ matrix.arch_name }}" == "aarch64" ]; then
             sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+            export PKG_CONFIG_PATH=/usr/aarch64-linux-gnu/lib/pkgconfig:/usr/lib/pkgconfig
+            export PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu
           fi
 
       - name: Restore cache
