@@ -11,4 +11,4 @@ rustflags = [
 [env]
 PKG_CONFIG_PATH = "/usr/aarch64-linux-gnu/lib/pkgconfig"
 PKG_CONFIG_SYSROOT_DIR = "/usr/aarch64-linux-gnu"
-
+LIBRARY_PATH = "/usr/aarch64-linux-gnu/lib"
