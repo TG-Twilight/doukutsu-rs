@@ -66,9 +66,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Install dependencies
+      - name: Install dependencies for Ubuntu
         if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: sudo apt install libasound2-dev libudev-dev libgl1-mesa-dev libxext-dev
+        run: |
+          sudo apt update
+          sudo apt install -y libasound2-dev libudev-dev libgl1-mesa-dev libxext-dev
+          if [ "${{ matrix.arch_name }}" == "aarch64" ]; then
+            sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          fi
 
       - name: Restore cache
         uses: actions/cache/restore@v4
