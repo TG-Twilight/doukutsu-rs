@@ -1,46 +1,66 @@
-name: Release
-
 on:
-  release:
-    types:
-      - released
+  push:
+    tags:
+      - "v*"
 
-defaults:
-  run:
-    shell: bash
+permissions:
+  contents: write
+  packages: write
 
 jobs:
-  update_metadata:
-    name: Update metadata
+  create-release:
+    name: Create Release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          repository: doukutsu-rs/metadata
-          token: ${{ secrets.METADATA_USER_TOKEN }}
-      - name: Update metadata
-        id: metadata
+          fetch-depth: 0
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npx changelogithub
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+  build-matrix:
+    name: Release Go Binary
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from Git Ref
+        id: extract_version
         run: |
-          export VERSION="${{ github.event.release.tag_name }}"
-          export FILE="./metadata/stable.json"
+          VERSION=$(echo "${{ github.ref }}" | sed 's/refs\/tags\/v//')
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
-          node ./metadata.js --os windows --arch x86_64 --version $VERSION --link https://github.com/doukutsu-rs/doukutsu-rs/releases/download/$VERSION/doukutsu-rs_windows_$VERSION.x86_64.exe $FILE
-          node ./metadata.js --os windows --arch i686 --version $VERSION --link https://github.com/doukutsu-rs/doukutsu-rs/releases/download/$VERSION/doukutsu-rs_windows_$VERSION.i686.exe $FILE
-          node ./metadata.js --os macos --arch x64 --version $VERSION --link https://github.com/doukutsu-rs/doukutsu-rs/releases/download/$VERSION/doukutsu-rs_mac_$VERSION.x86_64.zip $FILE
-          node ./metadata.js --os macos --arch arm64 --version $VERSION --link https://github.com/doukutsu-rs/doukutsu-rs/releases/download/$VERSION/doukutsu-rs_mac_$VERSION.arm64.zip $FILE
-          node ./metadata.js --os linux --arch x86_64 --version $VERSION --link https://github.com/doukutsu-rs/doukutsu-rs/releases/download/$VERSION/doukutsu-rs_linux_$VERSION.x86_64.elf $FILE
-          node ./metadata.js --os android --version $VERSION --link https://github.com/doukutsu-rs/doukutsu-rs/releases/download/$VERSION/doukutsu-rs_android_$VERSION.apk $FILE
-
-          echo "file=$FILE" >> "$GITHUB_OUTPUT"
-      - name: Upload metadata
-        run: |
-          git config user.name ${{ vars.METADATA_USER_NAME }}
-          git config user.email ${{ vars.METADATA_USER_EMAIL }}
-
-          git add ${{ steps.metadata.outputs.file }}
-          git commit -m "Update stable builds metadata(CI)"
-          git push
-
-          
+      - name: Release Go Binary
+        uses: wangyoucao577/go-release-action@v1
+        with:
+          pre_command: export CGO_ENABLED=0
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_files: |
+            LICENSE
+            README.md
+          ldflags: >-
+            -s -w
+            -X "github.com/TG-Twilight/doukutsu-rs/common.Version=${{ env.VERSION }}"
+            -X "github.com/TG-Twilight/doukutsu-rs/common.BuildTime=${{ format(github.event.repository.updated_at, 'yyyy-MM-dd HH:mm:ss') }}"
+            -X "github.com/TG-Twilight/doukutsu-rs/common.GitCommit=${{ github.sha }}"
+          binary_name: saveany-bot
+        env:
+          VERSION: ${{ env.VERSION }}
