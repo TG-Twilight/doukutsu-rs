@@ -30,37 +30,40 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
   build-matrix:
-    name: Release Go Binary
+    name: Release Rust Binary
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
+        rust_target: [aarch64-unknown-linux-gnu, x86_64-unknown-linux-gnu]
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract version from Git Ref
-        id: extract_version
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
+        with:
+          rust-version: stable
+
+      - name: Install Rust target for ARM64
+        run: rustup target add ${{ matrix.rust_target }}
+
+      - name: Build Rust Binary
         run: |
           VERSION=$(echo "${{ github.ref }}" | sed 's/refs\/tags\/v//')
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          cargo build --release --target ${{ matrix.rust_target }}
 
-      - name: Release Go Binary
-        uses: wangyoucao577/go-release-action@v1
-        with:
-          pre_command: export CGO_ENABLED=0
-          goos: ${{ matrix.goos }}
-          goarch: ${{ matrix.goarch }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          extra_files: |
-            LICENSE
-            README.md
-          ldflags: >-
-            -s -w
-            -X "github.com/TG-Twilight/doukutsu-rs/common.Version=${{ env.VERSION }}"
-            -X "github.com/TG-Twilight/doukutsu-rs/common.BuildTime=${{ format(github.event.repository.updated_at, 'yyyy-MM-dd HH:mm:ss') }}"
-            -X "github.com/TG-Twilight/doukutsu-rs/common.GitCommit=${{ github.sha }}"
-          binary_name: saveany-bot
+      - name: Archive the binary
+        run: |
+          mkdir release
+          cp target/${{ matrix.rust_target }}/release/your_project_name release/your_project_name-${{ matrix.rust_target }}-${{ env.VERSION }}
+          tar -czvf release/your_project_name-${{ matrix.rust_target }}-${{ env.VERSION }}.tar.gz release/your_project_name-${{ matrix.rust_target }}-${{ env.VERSION }}
         env:
           VERSION: ${{ env.VERSION }}
+
+      - name: Create GitHub Release with binary
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
