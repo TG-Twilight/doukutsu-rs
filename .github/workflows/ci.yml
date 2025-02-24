@@ -1,69 +1,157 @@
+name: CI
+
 on:
   push:
-    tags:
-      - "v*"
+    branches-ignore:
+      - cpp-rewrite
+      - horizon-os
+    paths-ignore:
+      - '.gitignore'
+      - '.github/*'
+      - '**.md'
+      - 'LICENSE'
+      - 'drshorizon/**'
+      - 'res/**'
+  workflow_dispatch:
 
-permissions:
-  contents: write
-  packages: write
+defaults:
+  run:
+    shell: bash
+
+env:
+  VERSION: "0.101.0"
 
 jobs:
-  create-release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - run: npx changelogithub
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-
-  build-matrix:
-    name: Release Rust Binary
-    runs-on: ubuntu-latest
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: true
       matrix:
-        rust_target: [aarch64-unknown-linux-gnu, x86_64-unknown-linux-gnu]
+        include:
+          - name: Linux x86_64
+            os: ubuntu-latest
+            channel: stable
+            target: x86_64-unknown-linux-gnu
+            target_name: linux-x64
+            arch_name: x86_64
+          - name: Linux ARM64
+            os: ubuntu-latest
+            channel: stable
+            target: aarch64-unknown-linux-gnu
+            target_name: linux-arm64
+            arch_name: aarch64
+          - name: Windows x64
+            os: windows-latest
+            channel: stable
+            target: x86_64-pc-windows-msvc
+            target_name: windows-x64
+            arch_name: x86_64
+          - name: Windows x32
+            os: windows-latest
+            channel: stable
+            target: i686-pc-windows-msvc
+            target_name: windows-x32
+            arch_name: i686
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: sudo apt install libasound2-dev libudev-dev libgl1-mesa-dev libxext-dev
 
-      - name: Set up Rust
-        uses: actions/setup-rust@v1
+      - name: Restore cache
+        uses: actions/cache/restore@v4
         with:
-          rust-version: stable
+          path: |
+            ~/.cargo
+            ~/.rustup
+            target
+          key: ${{ matrix.target_name }}-cargo
 
-      - name: Install Rust target for ARM64
-        run: rustup target add ${{ matrix.rust_target }}
-
-      - name: Build Rust Binary
+      - name: Setup rust toolchain
         run: |
-          VERSION=$(echo "${{ github.ref }}" | sed 's/refs\/tags\/v//')
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          cargo build --release --target ${{ matrix.rust_target }}
+          rustup default ${{ matrix.channel }}
+          rustup target add ${{ matrix.target }}
+          
+          rustc -vV
+          cargo -vV
 
-      - name: Archive the binary
+      - name: Build
         run: |
+          if [ "${{ github.ref_type }}" == "tag" ]; then
+            export DRS_BUILD_VERSION_OVERRIDE="${{ github.ref_name }}"
+          elif [ "${{ github.ref_name }}" == "master" ]; then
+            export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-$((${{ github.run_number }} + 654))"
+          else
+            export DRS_BUILD_VERSION_OVERRIDE="${{ env.VERSION }}-${GITHUB_SHA:0:7}"
+          fi
+          
           mkdir release
-          cp target/${{ matrix.rust_target }}/release/your_project_name release/your_project_name-${{ matrix.rust_target }}-${{ env.VERSION }}
-          tar -czvf release/your_project_name-${{ matrix.rust_target }}-${{ env.VERSION }}.tar.gz release/your_project_name-${{ matrix.rust_target }}-${{ env.VERSION }}
-        env:
-          VERSION: ${{ env.VERSION }}
+          cp LICENSE release
+          
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs --target ${{ matrix.target }}
+            cp ./target/${{ matrix.target }}/release/doukutsu-rs.exe release/doukutsu-rs.${{ matrix.arch_name }}.exe
+          elif [ "${{ runner.os }}" == "Linux" ]; then
+            RUSTFLAGS="-C link-args=-s" CARGO_INCREMENTAL=1 cargo build --release --locked --bin doukutsu-rs --target ${{ matrix.target }}
+            cp -a ./target/${{ matrix.target }}/release/doukutsu-rs release/doukutsu-rs.${{ matrix.arch_name }}.elf
+          fi
 
-      - name: Create GitHub Release with binary
-        uses: softprops/action-gh-release@v2
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: release/*.tar.gz
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: doukutsu-rs_${{ matrix.target_name }}
+          path: ./release/*
+          if-no-files-found: error
+
+      - name: Save cache
+        if: ${{ github.ref_name == 'master' || github.ref_type == 'tag' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo
+            ~/.rustup
+            target
+          key: ${{ matrix.target_name }}-cargo
+
+  update_metadata:
+    name: Update metadata
+    runs-on: ubuntu-latest
+    if: ${{ github.ref_type != 'tag' && always() }}
+    needs: [build]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: doukutsu-rs/metadata
+          token: ${{ secrets.METADATA_USER_TOKEN }}
+
+      - name: Update metadata
+        id: metadata
+        run: |
+          export FILE="./metadata/nightly.json"
+          if [ "${{ github.ref_name }}" == "master" ]; then
+            export VERSION="${{ env.VERSION }}-$((${{ github.run_number }} + 654))"
+          else
+            export VERSION="${{ env.VERSION }}-${GITHUB_SHA:0:7}"
+          fi
+
+          if [ "${{ needs.build.result }}" == "success" ]; then
+            node ./metadata.js --os linux --arch x86_64 --version $VERSION --commit $GITHUB_SHA --link https://github.com/doukutsu-rs/doukutsu-rs/releases/download/${{ github.run_id }}/doukutsu-rs_linux-x64.zip $FILE
+            node ./metadata.js --os linux --arch arm64 --version $VERSION --commit $GITHUB_SHA --link https://github.com/doukutsu-rs/doukutsu-rs/releases/download/${{ github.run_id }}/doukutsu-rs_linux-arm64.zip $FILE
+            node ./metadata.js --os windows --arch x86_64 --version $VERSION --commit $GITHUB_SHA --link https://github.com/doukutsu-rs/doukutsu-rs/releases/download/${{ github.run_id }}/doukutsu-rs_windows-x64.zip $FILE
+            node ./metadata.js --os windows --arch i686 --version $VERSION --commit $GITHUB_SHA --link https://github.com/doukutsu-rs/doukutsu-rs/releases/download/${{ github.run_id }}/doukutsu-rs_windows-x32.zip $FILE
+          fi
+
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Upload metadata
+        run: |
+          git config user.name ${{ vars.METADATA_USER_NAME }}
+          git config user.email ${{ vars.METADATA_USER_EMAIL }}
+
+          git add ${{ steps.metadata.outputs.file }}
+          git commit -m "Update builds metadata(CI)"
+          git push
