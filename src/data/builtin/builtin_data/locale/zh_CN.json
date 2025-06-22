@@ -1,199 +1,199 @@
 {
-  "name": "English",
+  "name": "简体中文",
   "font": "csfont.fnt",
   "font_scale": "0.5",
   "common": {
     "name": "doukutsu-rs",
-    "back": "< Back",
-    "yes": "Yes",
-    "no": "No",
-    "on": "ON",
-    "off": "OFF"
+    "back": "< 返回",
+    "yes": "是",
+    "no": "否",
+    "on": "开",
+    "off": "关"
   },
   "menus": {
     "main_menu": {
-      "start": "Start Game",
-      "challenges": "Challenges",
-      "options": "Options",
-      "editor": "Editor",
-      "jukebox": "Jukebox",
-      "quit": "Quit"
+      "start": "开始游戏",
+      "challenges": "挑战",
+      "options": "选项",
+      "editor": "关卡编辑器",
+      "jukebox": "点歌机",
+      "quit": "退出"
     },
     "pause_menu": {
-      "resume": "Resume",
-      "retry": "Retry",
-      "options": "Options",
-      "title": "Title",
-      "title_confirm": "Title?",
-      "quit": "Quit",
-      "quit_confirm": "Quit?",
-      "add_player2": "Add Player 2",
-      "drop_player2": "Drop Player 2"
+      "resume": "继续",
+      "retry": "重试",
+      "options": "设置",
+      "title": "主菜单",
+      "title_confirm": "回到主菜单？",
+      "quit": "退出",
+      "quit_confirm": "退出游戏？",
+      "add_player2": "添加玩家2",
+      "drop_player2": "移除玩家2"
     },
     "save_menu": {
-      "new": "New Save",
-      "delete_info": "Press Right to Delete",
-      "delete_confirm": "Delete?",
-      "invalid_save": "Invalid Save"
+      "new": "新存档",
+      "delete_info": "按右键删除",
+      "delete_confirm": "删除？",
+      "invalid_save": "无效存档"
     },
     "difficulty_menu": {
-      "title": "Select Difficulty",
-      "easy": "Easy",
-      "normal": "Normal",
-      "hard": "Hard",
-      "difficulty_name": "Difficulty: {difficulty}",
-      "unknown": "(unknown)"
+      "title": "选择难度",
+      "easy": "简单",
+      "normal": "普通",
+      "hard": "困难",
+      "difficulty_name": "难度：{difficulty}",
+      "unknown": "(未知)"
     },
     "coop_menu": {
-      "title": "Select Number of Players",
-      "one": "Single Player",
-      "two": "Two Players"
+      "title": "选择玩家数量",
+      "one": "单人模式",
+      "two": "双人模式"
     },
     "skin_menu": {
-      "title": "Select Player 2's appearance",
-      "label": "Appearance:"
+      "title": "选择玩家2外观",
+      "label": "外观："
     },
     "challenge_menu": {
-      "start": "Start",
-      "no_replay": "No Replay",
-      "replay_best": "Replay Best",
-      "replay_last": "Replay Last",
-      "delete_replay": "Delete Best Replay"
+      "start": "开始",
+      "no_replay": "无回放",
+      "replay_best": "播放最佳回放",
+      "replay_last": "播放上次回放",
+      "delete_replay": "删除最佳回放"
     },
     "options_menu": {
-      "graphics": "Graphics...",
+      "graphics": "图形...",
       "graphics_menu": {
         "window_mode": {
-          "entry": "Display mode:",
-          "windowed": "Windowed",
-          "fullscreen": "Fullscreen"
+          "entry": "显示模式：",
+          "windowed": "窗口模式",
+          "fullscreen": "全屏"
         },
-        "lighting_effects": "Lighting effects:",
-        "weapon_light_cone": "Weapon light cone:",
+        "lighting_effects": "光照效果：",
+        "weapon_light_cone": "武器光锥：",
         "screen_shake": {
-          "entry": "Screen shake intensity:",
+          "entry": "屏幕震动强度：",
           "full": "1x",
           "half": "0.5x",
-          "off": "Off"
+          "off": "关"
         },
-        "motion_interpolation": "Motion interpolation:",
-        "subpixel_scrolling": "Subpixel scrolling:",
-        "original_textures": "Original textures:",
-        "seasonal_textures": "Seasonal textures:",
-        "renderer": "Renderer:",
+        "motion_interpolation": "运动插值：",
+        "subpixel_scrolling": "子像素滚动：",
+        "original_textures": "原版贴图：",
+        "seasonal_textures": "季节性贴图：",
+        "renderer": "渲染器：",
         "vsync_mode": {
-          "entry": "V-Sync:",
-          "uncapped": "Uncapped",
-          "uncapped_desc": "V-Sync Off.",
-          "vsync": "Enabled",
-          "vsync_desc": "V-Sync On.",
-          "vrr_1x": "Variable Refresh Rate (1x)",
-          "vrr_1x_desc": "Uses (G-/Free)Sync if available.",
-          "vrr_2x": "Variable Refresh Rate (2x)",
-          "vrr_2x_desc": "Uses (G-/Free)Sync if available.",
-          "vrr_3x": "Variable Refresh Rate (3x)",
-          "vrr_3x_desc": "Uses (G-/Free)Sync if available."
+          "entry": "垂直同步：",
+          "uncapped": "不限制",
+          "uncapped_desc": "关闭垂直同步。",
+          "vsync": "启用",
+          "vsync_desc": "开启垂直同步。",
+          "vrr_1x": "可变刷新率 (1x)",
+          "vrr_1x_desc": "如可用则使用 (G-/Free)Sync。",
+          "vrr_2x": "可变刷新率 (2x)",
+          "vrr_2x_desc": "如可用则使用 (G-/Free)Sync。",
+          "vrr_3x": "可变刷新率 (3x)",
+          "vrr_3x_desc": "如可用则使用 (G-/Free)Sync。"
         }
       },
-      "sound": "Sound...",
+      "sound": "声音...",
       "sound_menu": {
-        "music_volume": "Music Volume",
-        "effects_volume": "Effects Volume",
+        "music_volume": "音乐音量",
+        "effects_volume": "音效音量",
         "bgm_interpolation": {
-          "entry": "BGM Interpolation:",
-          "linear": "Linear",
-          "linear_desc": "Fast, similar to freeware on Vista+",
-          "cosine": "Cosine",
-          "cosine_desc": "Cosine interpolation",
-          "cubic": "Cubic",
-          "cubic_desc": "Cubic interpolation",
-          "linear_lp": "Linear+LP",
-          "linear_lp_desc": "Slowest, similar to freeware on XP",
-          "nearest": "Nearest",
-          "nearest_desc": "Fastest, lowest quality"
+          "entry": "BGM插值：",
+          "linear": "线性插值",
+          "linear_desc": "较快，类似Vista以上的免费版",
+          "cosine": "余弦插值",
+          "cosine_desc": "余弦插值",
+          "cubic": "立方插值",
+          "cubic_desc": "立方插值",
+          "linear_lp": "线性+LP",
+          "linear_lp_desc": "最慢，类似XP上的免费版",
+          "nearest": "最近点",
+          "nearest_desc": "最快，最低质量"
         },
-        "soundtrack": "Soundtrack: {soundtrack}"
+        "soundtrack": "原声集：{soundtrack}"
       },
-      "controls": "Controls...",
+      "controls": "按键设置...",
       "controls_menu": {
-        "display_touch_controls": "Display touch controls:"
+        "display_touch_controls": "显示触控按键："
       },
-      "language": "Language...",
-      "behavior": "Behavior...",
+      "language": "语言...",
+      "behavior": "行为...",
       "behavior_menu": {
         "game_timing": {
-          "entry": "Game timing:",
-          "50tps": "50tps (freeware)",
-          "60tps": "60tps (CS+)"
+          "entry": "游戏节奏：",
+          "50tps": "50tps（免费版）",
+          "60tps": "60tps（CS+）"
         },
-        "pause_on_focus_loss": "Pause on focus loss:",
+        "pause_on_focus_loss": "失去焦点时暂停：",
         "cutscene_skip_method": {
-          "entry": "Cutscene Skip:",
-          "hold": "Hold to Skip",
-          "fastforward": "Fast-Forward",
-          "auto": "Auto"
+          "entry": "过场跳过方式：",
+          "hold": "长按跳过",
+          "fastforward": "快进",
+          "auto": "自动"
         },
-        "discord_rpc": "Discord Rich Presence:",
-        "allow_strafe": "Allow strafe:"
+        "discord_rpc": "Discord 富状态显示：",
+        "allow_strafe": "允许横移："
       },
-      "links": "Links...",
-      "advanced": "Advanced...",
+      "links": "链接...",
+      "advanced": "高级...",
       "advanced_menu": {
-        "open_user_data": "Open user data directory",
-        "open_game_data": "Open game data directory",
-        "make_portable": "Make portable user directory"
+        "open_user_data": "打开用户数据目录",
+        "open_game_data": "打开游戏数据目录",
+        "make_portable": "创建便携式用户目录"
       },
       "portable_menu": {
-        "explanation": "This will create a local user data directory and copy your settings and save files.",
-        "restart_question": "Reload the game to use the new location?",
-        "restart": "Save and return to title",
-        "cancel": "Cancel"
+        "explanation": "这将创建本地用户数据目录，并复制你的设置和存档。",
+        "restart_question": "重启游戏以使用新位置？",
+        "restart": "保存并返回标题界面",
+        "cancel": "取消"
       }
     },
     "controls_menu": {
       "select_player": {
-        "entry": "Select player:",
-        "player_1": "Player 1",
-        "player_2": "Player 2"
+        "entry": "选择玩家：",
+        "player_1": "玩家1",
+        "player_2": "玩家2"
       },
       "controller": {
-        "entry": "Controller...",
-        "keyboard": "Keyboard"
+        "entry": "控制器...",
+        "keyboard": "键盘"
       },
-      "rebind": "Rebind...",
+      "rebind": "重新绑定...",
       "rebind_menu": {
-        "up": "Up",
-        "down": "Down",
-        "left": "Left",
-        "right": "Right",
-        "jump": "Jump",
-        "shoot": "Shoot",
-        "prev_weapon": "Previous weapon",
-        "next_weapon": "Next weapon",
-        "inventory": "Inventory",
-        "map": "Map system",
-        "skip": "Skip",
-        "strafe": "Strafe",
-        "menu_ok": "Menu select/confirm",
-        "menu_back": "Menu back/cancel"
+        "up": "上",
+        "down": "下",
+        "left": "左",
+        "right": "右",
+        "jump": "跳跃",
+        "shoot": "射击",
+        "prev_weapon": "上一个武器",
+        "next_weapon": "下一个武器",
+        "inventory": "物品栏",
+        "map": "地图系统",
+        "skip": "跳过",
+        "strafe": "横移",
+        "menu_ok": "菜单确定",
+        "menu_back": "菜单返回/取消"
       },
       "rebind_confirm_menu": {
-        "title": "Press button for \"{control}\"",
-        "cancel": "(Esc to cancel)"
+        "title": "请按下 “{control}” 的按键",
+        "cancel": "（按Esc取消）"
       },
-      "rumble": "Rumble:",
-      "reset_confirm": "Reset...",
-      "reset_confirm_menu_title": "Reset controls?"
+      "rumble": "振动：",
+      "reset_confirm": "重置...",
+      "reset_confirm_menu_title": "确定重置按键？"
     }
   },
   "soundtrack": {
     "organya": "Organya",
-    "remastered": "Remastered",
-    "new": "New",
+    "remastered": "重制版",
+    "new": "新",
     "famitracks": "Famitracks",
     "ridiculon": "Ridiculon"
   },
   "game": {
-    "cutscene_skip": "Hold {key} to skip the cutscene"
+    "cutscene_skip": "按住 {key} 跳过过场动画"
   }
 }
