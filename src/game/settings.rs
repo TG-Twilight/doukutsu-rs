@@ -326,6 +326,7 @@ impl Settings {
             self.version = 21;
 
             self.locale = match self.locale.as_str() {
+                "简体中文" => "zh_CN".to_string(),
                 "English" => "en".to_string(),
                 "Japanese" => "jp".to_string(),
                 _ => default_locale(),
